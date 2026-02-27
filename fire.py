@@ -1,64 +1,90 @@
 import streamlit as st
 from ftplib import FTP
-import pandas as pd
+import urllib.parse
 
 # ---------------- CONFIGURATION ----------------
 FTP_HOST = "82.180.143.66"
 FTP_USER = "u263681140"
 FTP_PASS = "SagarA@2025"
-REMOTE_PATH = "FireFighter"
+REMOTE_PATH = "public_html/FireFighter"
 BASE_WEB_URL = "http://aeprojecthub.in/FireFighter/"
+
+ADMIN_USER = "admin"
+ADMIN_PASS = "admin"
 # -----------------------------------------------
 
 st.set_page_config(page_title="FireFighter Video Gallery", layout="wide")
 
-st.title("🔥 FireFighter: Cloud Video Gallery")
-st.markdown(f"Accessing recordings from: `{BASE_WEB_URL}`")
+# Login State Management
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
 
+if not st.session_state['logged_in']:
+    st.title("🔒 FireFighter Login")
+    with st.form("login"):
+        u = st.text_input("Username")
+        p = st.text_input("Password", type="password")
+        if st.form_submit_button("Login"):
+            if u == ADMIN_USER and p == ADMIN_PASS:
+                st.session_state['logged_in'] = True
+                st.rerun()
+            else:
+                st.error("Access Denied")
+    st.stop()
+
+# --- APP CONTENT ---
+
+@st.cache_data(ttl=300)
 def get_video_list():
     try:
         ftp = FTP(FTP_HOST)
         ftp.login(FTP_USER, FTP_PASS)
         ftp.cwd(REMOTE_PATH)
-        
-        # Get all filenames in the folder
         files = ftp.nlst()
         ftp.quit()
-        
-        # Filter only mp4 files and sort by newest first
-        video_files = [f for f in files if f.endswith('.mp4')]
-        video_files.sort(reverse=True)
-        return video_files
+        # Filter and sort (Newest files usually have higher numeric/alphabetical names)
+        return sorted([f for f in files if f.endswith('.mp4')], reverse=True)
     except Exception as e:
-        st.error(f"Error connecting to FTP: {e}")
+        st.error(f"Connection Error: {e}")
         return []
 
-# Sidebar for controls
-if st.sidebar.button("🔄 Refresh Gallery"):
-    st.cache_data.clear()
+st.title("🔥 FireFighter Video Monitor")
 
 videos = get_video_list()
 
 if not videos:
-    st.info("No videos found in the FireFighter folder.")
+    st.warning("No MP4 files found on the server.")
 else:
-    st.sidebar.write(f"Total Videos: {len(videos)}")
+    # Sidebar for Video Selection
+    st.sidebar.title("Navigation")
+    selected_video = st.sidebar.radio("Select Recording:", videos)
     
-    # Selection box to pick a video
-    selected_video = st.selectbox("Select a video to play:", videos)
+    if st.sidebar.button("🔄 Refresh List"):
+        st.cache_data.clear()
+        st.rerun()
+
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state['logged_in'] = False
+        st.rerun()
+
+    # --- MAIN DISPLAY ---
+    st.subheader(f"Viewing: {selected_video}")
     
-    # Layout: Top video player
-    st.subheader(f"Playing: {selected_video}")
-    video_url = BASE_WEB_URL + selected_video
-    st.video(video_url)
+    # URL Encoding handles spaces or special characters in filenames
+    encoded_name = urllib.parse.quote(selected_video)
+    full_url = f"{BASE_WEB_URL}{encoded_name}"
     
+    # The 'st.video' component provides full-screen, volume, and download options
+    st.video(full_url, format="video/mp4", start_time=0)
+    
+    st.info(f"Direct Link: {full_url}")
+
+    # Optional: Display Gallery Grid below
     st.divider()
-    
-    # Bottom Layout: Grid gallery
-    st.subheader("Recent Uploads")
-    cols = st.columns(3)
-    for i, vid in enumerate(videos[:9]): # Show top 9 in grid
-        with cols[i % 3]:
-            st.write(f"📄 {vid}")
-            # Smaller player for the grid
-            st.video(BASE_WEB_URL + vid)
+    st.subheader("Recent Captures")
+    cols = st.columns(4)
+    for i, vid in enumerate(videos[:8]):
+        with cols[i % 4]:
+            st.caption(vid)
+            # Small preview player
+            st.video(f"{BASE_WEB_URL}{urllib.parse.quote(vid)}")
