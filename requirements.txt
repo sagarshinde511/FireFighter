@@ -1,4 +1,2 @@
-flask
-picamera2
-opencv-python
-numpy
+streamlit
+pandas
