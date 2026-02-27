@@ -6,7 +6,7 @@ import pandas as pd
 FTP_HOST = "82.180.143.66"
 FTP_USER = "u263681140"
 FTP_PASS = "SagarA@2025"
-REMOTE_PATH = "public_html/FireFighter"
+REMOTE_PATH = "FireFighter"
 BASE_WEB_URL = "http://aeprojecthub.in/FireFighter/"
 # -----------------------------------------------
 
